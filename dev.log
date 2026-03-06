@@ -1,0 +1,21 @@
+
+> minicraft@0.1.0 dev
+> vite
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vitejs.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+worker.plugins is now a function that returns an array of plugins. Please update your Vite config accordingly.
+
+
+  VITE v5.0.0  ready in 355 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+Browserslist: caniuse-lite is outdated. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+Files in the public directory are served at the root path.
+Instead of /public/Minecraft.woff, use /Minecraft.woff.
+Files in the public directory are served at the root path.
+Instead of /public/textures/dirt.png, use /textures/dirt.png.
+12:44:36 PM [vite] ✨ new dependencies optimized: three/examples/jsm/math/SimplexNoise
+12:44:36 PM [vite] ✨ optimized dependencies changed. reloading

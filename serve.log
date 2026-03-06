@@ -1,0 +1,9 @@
+
+> minicraft@0.1.0 serve
+> vite preview --port 3000
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vitejs.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+worker.plugins is now a function that returns an array of plugins. Please update your Vite config accordingly.
+
+  ➜  Local:   http://localhost:3000/
+  ➜  Network: use --host to expose
