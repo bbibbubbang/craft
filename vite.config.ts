@@ -5,6 +5,7 @@ import { comlink } from "vite-plugin-comlink";
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  base: "./",
   alias: {
     "~": resolve(__dirname, "src"),
   },
