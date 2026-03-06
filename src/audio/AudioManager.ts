@@ -16,7 +16,7 @@ class AudioManager {
 
   loadSounds() {
     return new Howl({
-      src: ["/audio/sprite.webm", "/audio/sprite.mp3"],
+      src: ["./audio/sprite.webm", "./audio/sprite.mp3"],
       sprite: spriteData.sprite as any,
     });
   }
