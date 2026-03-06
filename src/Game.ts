@@ -205,7 +205,7 @@ export default class Game {
 
   initAudio() {
     const sound = new Howl({
-      src: ["audio/ambient.mp3"],
+      src: ["./audio/ambient.mp3"],
       loop: true,
     });
     sound.play();
