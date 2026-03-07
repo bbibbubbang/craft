@@ -10,6 +10,9 @@ import { Physics } from "./Physics";
 import { Player } from "./Player";
 import { numberWithCommas } from "./util";
 import { World } from "./World";
+import { ParticleSystem } from "./Particles";
+import { BlockFactory } from "./Block/BlockFactory";
+import { PlayerModel } from "./PlayerModel";
 
 const vertexShader = `
   varying vec3 worldPosition;
@@ -57,6 +60,11 @@ export default class Game {
   private world!: World;
   private player!: Player;
   private physics!: Physics;
+  private particleSystem!: ParticleSystem;
+  private playerModel!: PlayerModel;
+
+  private isLeftClickDown = false;
+  private lastBreakTime = 0;
 
   private previousTime = 0;
   private lastShadowUpdate = 0;
@@ -186,6 +194,15 @@ export default class Game {
 
     this.player = new Player(this.scene);
     this.physics = new Physics(this.scene);
+    this.particleSystem = new ParticleSystem(this.scene);
+
+    this.playerModel = new PlayerModel();
+    this.scene.add(this.playerModel);
+
+    // First person arm
+    this.player.camera.add(this.playerModel.rightArm);
+    this.playerModel.rightArm.position.set(0.6, -0.6, -0.5); // position relative to camera
+    this.playerModel.rightArm.rotation.set(-Math.PI / 4, 0, 0);
 
     this.updateSunPosition(0);
 
@@ -213,28 +230,55 @@ export default class Game {
 
   onMouseDown(event: MouseEvent) {
     if (this.player.controls.isLocked) {
-      if (event.button === 0 && this.player.selectedCoords) {
+      if (event.button === 0) {
         // Left click
-        this.world.removeBlock(
-          Math.ceil(this.player.selectedCoords.x - 0.5),
-          Math.ceil(this.player.selectedCoords.y - 0.5),
-          Math.ceil(this.player.selectedCoords.z - 0.5)
-        );
+        this.isLeftClickDown = true;
+
+        if (this.player.selectedCoords) {
+          const blockX = Math.ceil(this.player.selectedCoords.x - 0.5);
+          const blockY = Math.ceil(this.player.selectedCoords.y - 0.5);
+          const blockZ = Math.ceil(this.player.selectedCoords.z - 0.5);
+
+          const blockId = this.world.getBlock(blockX, blockY, blockZ)?.block;
+
+          if (blockId) {
+            const material = BlockFactory.getBlock(blockId).material;
+            this.particleSystem.spawn(new THREE.Vector3(blockX, blockY, blockZ), material);
+          }
+
+          this.world.removeBlock(
+            blockX,
+            blockY,
+            blockZ
+          );
+
+          this.lastBreakTime = performance.now();
+        }
       } else if (event.button === 2 && this.player.blockPlacementCoords) {
         // console.log("adding block", this.player.activeBlockId);
         if (this.player.activeBlockId != null) {
-          const playerPos = new THREE.Vector3(
-            Math.floor(this.player.position.x),
-            Math.floor(this.player.position.y) - 1,
-            Math.floor(this.player.position.z)
-          );
           const blockPos = new THREE.Vector3(
             Math.floor(this.player.blockPlacementCoords.x - 0.5),
             Math.floor(this.player.blockPlacementCoords.y - 0.5),
             Math.floor(this.player.blockPlacementCoords.z - 0.5)
           );
 
-          if (playerPos.distanceTo(blockPos) <= this.player.radius * 2) return;
+          // Use bounding boxes for collision check
+          const blockBox = new THREE.Box3().setFromCenterAndSize(
+            new THREE.Vector3(blockPos.x + 0.5, blockPos.y + 0.5, blockPos.z + 0.5),
+            new THREE.Vector3(1, 1, 1)
+          );
+
+          const playerBox = new THREE.Box3().setFromCenterAndSize(
+            new THREE.Vector3(
+              this.player.position.x,
+              this.player.position.y - this.player.height / 2,
+              this.player.position.z
+            ),
+            new THREE.Vector3(this.player.radius * 2, this.player.height, this.player.radius * 2)
+          );
+
+          if (playerBox.intersectsBox(blockBox)) return;
 
           this.world.addBlock(
             blockPos.x,
@@ -250,6 +294,11 @@ export default class Game {
   initListeners() {
     window.addEventListener("resize", this.onWindowResize.bind(this), false);
     document.addEventListener("mousedown", this.onMouseDown.bind(this), false);
+    document.addEventListener("mouseup", (event: MouseEvent) => {
+      if (event.button === 0) {
+        this.isLeftClickDown = false;
+      }
+    }, false);
   }
 
   onWindowResize() {
@@ -369,6 +418,73 @@ export default class Game {
 
     this.physics.update(deltaTime, this.player, this.world);
     this.world.update(this.player);
+    this.particleSystem.update(deltaTime);
+
+    // Continuous block breaking
+    if (this.isLeftClickDown && currentTime - this.lastBreakTime > 250) {
+      if (this.player.controls.isLocked && this.player.selectedCoords) {
+        const blockX = Math.ceil(this.player.selectedCoords.x - 0.5);
+        const blockY = Math.ceil(this.player.selectedCoords.y - 0.5);
+        const blockZ = Math.ceil(this.player.selectedCoords.z - 0.5);
+
+        const blockId = this.world.getBlock(blockX, blockY, blockZ)?.block;
+
+        if (blockId) {
+          const material = BlockFactory.getBlock(blockId).material;
+          this.particleSystem.spawn(new THREE.Vector3(blockX, blockY, blockZ), material);
+        }
+
+        this.world.removeBlock(
+          blockX,
+          blockY,
+          blockZ
+        );
+        this.lastBreakTime = currentTime;
+      }
+    }
+
+    // Update player model visibility and position
+    if (this.player.activeBlockId != null) {
+      const blockMaterial = BlockFactory.getBlock(this.player.activeBlockId).material;
+      this.playerModel.heldItem.material = blockMaterial;
+      this.playerModel.heldItem.visible = true;
+    } else {
+      this.playerModel.heldItem.visible = false;
+    }
+
+    if (this.player.controls.isLocked) {
+      // First person view
+      this.playerModel.visible = false; // Hide 3rd person model
+      this.playerModel.rightArm.visible = true; // Show 1st person arm
+
+      this.player.camera.add(this.playerModel.rightArm);
+      this.playerModel.rightArm.position.set(0.6, -0.6, -0.5); // position relative to camera
+      this.playerModel.rightArm.rotation.set(-Math.PI / 4, 0, 0);
+    } else {
+      // Third person / Orbit view
+      this.playerModel.visible = true;
+
+      // Move right arm back to body
+      this.playerModel.add(this.playerModel.rightArm);
+      this.playerModel.rightArm.position.set(-0.375, 1.25, 0);
+      this.playerModel.rightArm.rotation.set(0, 0, 0);
+
+      // sync position with player
+      this.playerModel.position.copy(this.player.position);
+      this.playerModel.position.y -= this.player.height; // set to feet
+
+      // get Y rotation from player's camera to face correct direction
+      const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+      euler.setFromQuaternion(this.player.camera.quaternion);
+      this.playerModel.rotation.y = euler.y;
+
+      // Update animation based on velocity
+      const velocityLength = Math.sqrt(
+        this.player.velocity.x * this.player.velocity.x +
+        this.player.velocity.z * this.player.velocity.z
+      );
+      this.playerModel.updateAnimation(currentTime / 1000, velocityLength, this.player.isSprinting);
+    }
 
     // update triangle count
     const triangleCount = document.getElementById("triangle-count");

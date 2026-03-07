@@ -10,7 +10,7 @@ import { WorldChunk, WorldParams, WorldSize } from "./WorldChunk";
 export class World extends THREE.Group {
   scene: THREE.Scene;
   seed: number;
-  renderDistance = 8;
+  renderDistance = 2;
   asyncLoading = true;
   chunkSize: WorldSize = {
     width: 16,
