@@ -6,13 +6,15 @@ import { comlink } from "vite-plugin-comlink";
 // https://vitejs.dev/config/
 export default defineConfig({
   base: "./",
-  alias: {
-    "~": resolve(__dirname, "src"),
+  resolve: {
+    alias: {
+      "~": resolve(__dirname, "src"),
+    },
   },
   plugins: [comlink()],
   worker: {
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    plugins: [comlink()],
+    plugins: () => [comlink()],
   },
 });
