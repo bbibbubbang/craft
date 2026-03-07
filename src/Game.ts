@@ -11,6 +11,7 @@ import { Player } from "./Player";
 import { numberWithCommas } from "./util";
 import { World } from "./World";
 import { ParticleSystem } from "./Particles";
+import { BlockID } from "./Block";
 import { BlockFactory } from "./Block/BlockFactory";
 import { PlayerModel } from "./PlayerModel";
 
@@ -64,7 +65,9 @@ export default class Game {
   private playerModel!: PlayerModel;
 
   private isLeftClickDown = false;
+  private isRightClickDown = false;
   private lastBreakTime = 0;
+  private lastPlaceTime = 0;
 
   private previousTime = 0;
   private lastShadowUpdate = 0;
@@ -201,7 +204,7 @@ export default class Game {
 
     // First person arm
     this.player.camera.add(this.playerModel.rightArm);
-    this.playerModel.rightArm.position.set(0.6, -0.6, -0.5); // position relative to camera
+    this.playerModel.rightArm.position.set(0.2, -0.3, -0.4); // position relative to camera
     this.playerModel.rightArm.rotation.set(-Math.PI / 4, 0, 0);
 
     this.updateSunPosition(0);
@@ -228,65 +231,75 @@ export default class Game {
     sound.play();
   }
 
+  breakBlock() {
+    if (this.player.selectedCoords) {
+      const blockX = Math.ceil(this.player.selectedCoords.x - 0.5);
+      const blockY = Math.ceil(this.player.selectedCoords.y - 0.5);
+      const blockZ = Math.ceil(this.player.selectedCoords.z - 0.5);
+
+      const blockId = this.world.getBlock(blockX, blockY, blockZ)?.block;
+
+      if (blockId) {
+        const material = BlockFactory.getBlock(blockId).material;
+        this.particleSystem.spawn(new THREE.Vector3(blockX, blockY, blockZ), material);
+      }
+
+      this.world.removeBlock(
+        blockX,
+        blockY,
+        blockZ
+      );
+
+      this.lastBreakTime = performance.now();
+    }
+  }
+
+  placeBlock() {
+    if (this.player.blockPlacementCoords && this.player.activeBlockId != null && this.player.activeBlockId !== BlockID.Air) {
+      const blockPos = new THREE.Vector3(
+        Math.floor(this.player.blockPlacementCoords.x - 0.5),
+        Math.floor(this.player.blockPlacementCoords.y - 0.5),
+        Math.floor(this.player.blockPlacementCoords.z - 0.5)
+      );
+
+      // Use bounding boxes for collision check
+      const blockBox = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(blockPos.x + 0.5, blockPos.y + 0.5, blockPos.z + 0.5),
+        new THREE.Vector3(1, 1, 1)
+      );
+
+      const playerBox = new THREE.Box3().setFromCenterAndSize(
+        new THREE.Vector3(
+          this.player.position.x,
+          this.player.position.y - this.player.height / 2,
+          this.player.position.z
+        ),
+        new THREE.Vector3(this.player.radius * 2, this.player.height, this.player.radius * 2)
+      );
+
+      if (playerBox.intersectsBox(blockBox)) return;
+
+      this.world.addBlock(
+        blockPos.x,
+        blockPos.y,
+        blockPos.z,
+        this.player.activeBlockId
+      );
+
+      this.lastPlaceTime = performance.now();
+    }
+  }
+
   onMouseDown(event: MouseEvent) {
     if (this.player.controls.isLocked) {
       if (event.button === 0) {
         // Left click
         this.isLeftClickDown = true;
-
-        if (this.player.selectedCoords) {
-          const blockX = Math.ceil(this.player.selectedCoords.x - 0.5);
-          const blockY = Math.ceil(this.player.selectedCoords.y - 0.5);
-          const blockZ = Math.ceil(this.player.selectedCoords.z - 0.5);
-
-          const blockId = this.world.getBlock(blockX, blockY, blockZ)?.block;
-
-          if (blockId) {
-            const material = BlockFactory.getBlock(blockId).material;
-            this.particleSystem.spawn(new THREE.Vector3(blockX, blockY, blockZ), material);
-          }
-
-          this.world.removeBlock(
-            blockX,
-            blockY,
-            blockZ
-          );
-
-          this.lastBreakTime = performance.now();
-        }
-      } else if (event.button === 2 && this.player.blockPlacementCoords) {
-        // console.log("adding block", this.player.activeBlockId);
-        if (this.player.activeBlockId != null) {
-          const blockPos = new THREE.Vector3(
-            Math.floor(this.player.blockPlacementCoords.x - 0.5),
-            Math.floor(this.player.blockPlacementCoords.y - 0.5),
-            Math.floor(this.player.blockPlacementCoords.z - 0.5)
-          );
-
-          // Use bounding boxes for collision check
-          const blockBox = new THREE.Box3().setFromCenterAndSize(
-            new THREE.Vector3(blockPos.x + 0.5, blockPos.y + 0.5, blockPos.z + 0.5),
-            new THREE.Vector3(1, 1, 1)
-          );
-
-          const playerBox = new THREE.Box3().setFromCenterAndSize(
-            new THREE.Vector3(
-              this.player.position.x,
-              this.player.position.y - this.player.height / 2,
-              this.player.position.z
-            ),
-            new THREE.Vector3(this.player.radius * 2, this.player.height, this.player.radius * 2)
-          );
-
-          if (playerBox.intersectsBox(blockBox)) return;
-
-          this.world.addBlock(
-            blockPos.x,
-            blockPos.y,
-            blockPos.z,
-            this.player.activeBlockId
-          );
-        }
+        this.breakBlock();
+      } else if (event.button === 2) {
+        // Right click
+        this.isRightClickDown = true;
+        this.placeBlock();
       }
     }
   }
@@ -297,6 +310,8 @@ export default class Game {
     document.addEventListener("mouseup", (event: MouseEvent) => {
       if (event.button === 0) {
         this.isLeftClickDown = false;
+      } else if (event.button === 2) {
+        this.isRightClickDown = false;
       }
     }, false);
   }
@@ -422,31 +437,27 @@ export default class Game {
 
     // Continuous block breaking
     if (this.isLeftClickDown && currentTime - this.lastBreakTime > 250) {
-      if (this.player.controls.isLocked && this.player.selectedCoords) {
-        const blockX = Math.ceil(this.player.selectedCoords.x - 0.5);
-        const blockY = Math.ceil(this.player.selectedCoords.y - 0.5);
-        const blockZ = Math.ceil(this.player.selectedCoords.z - 0.5);
+      if (this.player.controls.isLocked) {
+        this.breakBlock();
+      }
+    }
 
-        const blockId = this.world.getBlock(blockX, blockY, blockZ)?.block;
-
-        if (blockId) {
-          const material = BlockFactory.getBlock(blockId).material;
-          this.particleSystem.spawn(new THREE.Vector3(blockX, blockY, blockZ), material);
-        }
-
-        this.world.removeBlock(
-          blockX,
-          blockY,
-          blockZ
-        );
-        this.lastBreakTime = currentTime;
+    // Continuous block placing
+    if (this.isRightClickDown && currentTime - this.lastPlaceTime > 250) {
+      if (this.player.controls.isLocked) {
+        this.placeBlock();
       }
     }
 
     // Update player model visibility and position
-    if (this.player.activeBlockId != null) {
+    if (this.player.activeBlockId != null && this.player.activeBlockId !== BlockID.Air) {
       const blockMaterial = BlockFactory.getBlock(this.player.activeBlockId).material;
-      this.playerModel.heldItem.material = blockMaterial;
+      // Handle array of materials (e.g. Grass block)
+      if (Array.isArray(blockMaterial)) {
+        this.playerModel.heldItem.material = blockMaterial;
+      } else {
+        this.playerModel.heldItem.material = blockMaterial;
+      }
       this.playerModel.heldItem.visible = true;
     } else {
       this.playerModel.heldItem.visible = false;
@@ -458,7 +469,7 @@ export default class Game {
       this.playerModel.rightArm.visible = true; // Show 1st person arm
 
       this.player.camera.add(this.playerModel.rightArm);
-      this.playerModel.rightArm.position.set(0.6, -0.6, -0.5); // position relative to camera
+      this.playerModel.rightArm.position.set(0.2, -0.3, -0.4); // position relative to camera
       this.playerModel.rightArm.rotation.set(-Math.PI / 4, 0, 0);
     } else {
       // Third person / Orbit view
@@ -466,7 +477,7 @@ export default class Game {
 
       // Move right arm back to body
       this.playerModel.add(this.playerModel.rightArm);
-      this.playerModel.rightArm.position.set(-0.375, 1.25, 0);
+      this.playerModel.rightArm.position.set(-0.375, 1.5, 0);
       this.playerModel.rightArm.rotation.set(0, 0, 0);
 
       // sync position with player
