@@ -68,6 +68,7 @@ export default class Game {
   private isRightClickDown = false;
   private lastBreakTime = 0;
   private lastPlaceTime = 0;
+  private lastPunchTime = 0;
 
   private previousTime = 0;
   private lastShadowUpdate = 0;
@@ -295,10 +296,12 @@ export default class Game {
       if (event.button === 0) {
         // Left click
         this.isLeftClickDown = true;
+        this.lastPunchTime = performance.now();
         this.breakBlock();
       } else if (event.button === 2) {
         // Right click
         this.isRightClickDown = true;
+        this.lastPunchTime = performance.now();
         this.placeBlock();
       }
     }
@@ -438,6 +441,7 @@ export default class Game {
     // Continuous block breaking
     if (this.isLeftClickDown && currentTime - this.lastBreakTime > 250) {
       if (this.player.controls.isLocked) {
+        this.lastPunchTime = performance.now();
         this.breakBlock();
       }
     }
@@ -445,6 +449,7 @@ export default class Game {
     // Continuous block placing
     if (this.isRightClickDown && currentTime - this.lastPlaceTime > 250) {
       if (this.player.controls.isLocked) {
+        this.lastPunchTime = performance.now();
         this.placeBlock();
       }
     }
@@ -469,8 +474,28 @@ export default class Game {
       this.playerModel.rightArm.visible = true; // Show 1st person arm
 
       this.player.camera.add(this.playerModel.rightArm);
-      this.playerModel.rightArm.position.set(0.2, -0.3, -0.4); // position relative to camera
-      this.playerModel.rightArm.rotation.set(-Math.PI / 4, 0, 0);
+
+      const velocityLength = Math.sqrt(
+        this.player.velocity.x * this.player.velocity.x +
+        this.player.velocity.z * this.player.velocity.z
+      );
+
+      // Base position and bobbing effect
+      let bobbingY = 0;
+      let bobbingX = 0;
+      if (velocityLength > 0.1) {
+        bobbingY = Math.sin(currentTime / 150) * 0.05;
+        bobbingX = Math.cos(currentTime / 300) * 0.05;
+      }
+      this.playerModel.rightArm.position.set(0.3 + bobbingX, -0.3 + bobbingY, -0.4);
+
+      // Base rotation and punching effect
+      let punchRotationX = 0;
+      if (currentTime - this.lastPunchTime < 200) {
+        punchRotationX = -Math.sin(((currentTime - this.lastPunchTime) / 200) * Math.PI) * 0.5;
+      }
+
+      this.playerModel.rightArm.rotation.set(1.3 + punchRotationX, 0.3, 0);
     } else {
       // Third person / Orbit view
       this.playerModel.visible = true;
