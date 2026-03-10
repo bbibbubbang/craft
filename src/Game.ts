@@ -205,8 +205,8 @@ export default class Game {
 
     // First person arm
     this.player.camera.add(this.playerModel.rightArm);
-    this.playerModel.rightArm.position.set(0.2, -0.3, -0.4); // position relative to camera
-    this.playerModel.rightArm.rotation.set(-Math.PI / 4, 0, 0);
+    this.playerModel.rightArm.position.set(0.4, -0.4, -0.5); // position relative to camera
+    this.playerModel.rightArm.rotation.set(1.5, 0.5, 0);
 
     this.updateSunPosition(0);
 
@@ -484,10 +484,10 @@ export default class Game {
       let bobbingY = 0;
       let bobbingX = 0;
       if (velocityLength > 0.1) {
-        bobbingY = Math.sin(currentTime / 150) * 0.05;
-        bobbingX = Math.cos(currentTime / 300) * 0.05;
+        bobbingY = Math.sin(currentTime / 75) * 0.05;
+        bobbingX = Math.cos(currentTime / 150) * 0.05;
       }
-      this.playerModel.rightArm.position.set(0.3 + bobbingX, -0.3 + bobbingY, -0.4);
+      this.playerModel.rightArm.position.set(0.4 + bobbingX, -0.4 + bobbingY, -0.5);
 
       // Base rotation and punching effect
       let punchRotationX = 0;
@@ -495,7 +495,7 @@ export default class Game {
         punchRotationX = -Math.sin(((currentTime - this.lastPunchTime) / 200) * Math.PI) * 0.5;
       }
 
-      this.playerModel.rightArm.rotation.set(1.3 + punchRotationX, 0.3, 0);
+      this.playerModel.rightArm.rotation.set(1.5 + punchRotationX, 0.5, 0);
     } else {
       // Third person / Orbit view
       this.playerModel.visible = true;
