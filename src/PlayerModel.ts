@@ -47,7 +47,7 @@ export class PlayerModel extends THREE.Group {
       new THREE.BoxGeometry(0.35, 0.35, 0.35),
       new THREE.MeshBasicMaterial({ color: 0xffffff }) // dummy material
     );
-    this.heldItem.position.set(0, -0.65, 0.125); // move up slightly
+    this.heldItem.position.set(0, -0.65, -0.15); // move up slightly
     this.rightArm.add(this.heldItem);
 
     this.add(this.rightArm);
@@ -71,7 +71,7 @@ export class PlayerModel extends THREE.Group {
 
   updateAnimation(time: number, speed: number, isSprinting: boolean) {
     if (speed > 0.1) {
-      const swingSpeed = isSprinting ? 15 : 10;
+      const swingSpeed = isSprinting ? 30 : 20;
       const angle = Math.sin(time * swingSpeed) * 0.5;
 
       this.leftArm.rotation.x = angle;

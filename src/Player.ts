@@ -52,7 +52,7 @@ const CENTER_SCREEN = new THREE.Vector2(0, 0);
 
 export class Player {
   height = 1.75;
-  radius = 0.5;
+  radius = 0.3;
   maxSpeed = 4.317;
   maxSprintSpeed = 5.612;
   // maxSpeed = 25;
