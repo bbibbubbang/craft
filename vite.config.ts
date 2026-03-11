@@ -5,7 +5,7 @@ import { comlink } from "vite-plugin-comlink";
 
 // https://vitejs.dev/config/
 export default defineConfig({
-  base: "./",
+  base: "/craft/",
   resolve: {
     alias: {
       "~": resolve(__dirname, "src"),
