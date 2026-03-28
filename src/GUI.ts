@@ -16,6 +16,7 @@ export function createUI(
   shadowHelper: THREE.CameraHelper
 ) {
   const gui = new GUI();
+  gui.close();
   const custom = { volume: 0.3 };
 
   const soundFolder = gui.addFolder("Sound");
