@@ -271,7 +271,7 @@ export class Player {
         // Update block placement coords to be 1 block over in the direction of the normal
         this.blockPlacementCoords = this.selectedCoords
           .clone()
-          .add(intersection.normal);
+          .add(intersection.normal.clone().round());
       }
 
       this.selectionHelper.position.copy(this.selectedCoords);

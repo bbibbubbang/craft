@@ -487,7 +487,7 @@ export default class Game {
             lastTouchPos.set(touch.clientX, touch.clientY);
 
             // Adjust sensitivity as needed
-            const sensitivity = 0.005;
+            const sensitivity = 0.025;
 
             // The PointerLockControls uses camera.rotation directly but exposes a more complex internal rotation mapping.
             // A simpler way to update the rotation through its public interface without triggering events manually
@@ -642,7 +642,7 @@ export default class Game {
 
     // Continuous block breaking
     if (this.isLeftClickDown && currentTime - this.lastBreakTime > 250) {
-      if (this.player.controls.isLocked) {
+      if (this.player.controls.isLocked || window.matchMedia("(pointer: coarse), (max-width: 1024px)").matches) {
         this.lastPunchTime = performance.now();
         this.breakBlock();
       }
@@ -650,7 +650,7 @@ export default class Game {
 
     // Continuous block placing
     if (this.isRightClickDown && currentTime - this.lastPlaceTime > 250) {
-      if (this.player.controls.isLocked) {
+      if (this.player.controls.isLocked || window.matchMedia("(pointer: coarse), (max-width: 1024px)").matches) {
         this.lastPunchTime = performance.now();
         this.placeBlock();
       }
