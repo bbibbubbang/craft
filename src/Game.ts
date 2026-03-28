@@ -92,6 +92,17 @@ export default class Game {
       if (loadingScreen) loadingScreen.style.display = "block";
       audioManager.play("gui.button.press");
 
+      // Attempt to go fullscreen and lock to landscape on mobile
+      if (window.matchMedia("(pointer: coarse), (max-width: 1024px)").matches) {
+        if (document.documentElement.requestFullscreen) {
+          document.documentElement.requestFullscreen().then(() => {
+            if (screen.orientation && screen.orientation.lock) {
+              screen.orientation.lock('landscape').catch((err) => console.warn(err));
+            }
+          }).catch(err => console.warn("Fullscreen request failed", err));
+        }
+      }
+
       this.initScene();
       this.initStats();
       this.initListeners();
@@ -234,9 +245,9 @@ export default class Game {
 
   breakBlock() {
     if (this.player.selectedCoords) {
-      const blockX = Math.ceil(this.player.selectedCoords.x - 0.5);
-      const blockY = Math.ceil(this.player.selectedCoords.y - 0.5);
-      const blockZ = Math.ceil(this.player.selectedCoords.z - 0.5);
+      const blockX = Math.round(this.player.selectedCoords.x);
+      const blockY = Math.round(this.player.selectedCoords.y);
+      const blockZ = Math.round(this.player.selectedCoords.z);
 
       const blockId = this.world.getBlock(blockX, blockY, blockZ)?.block;
 
@@ -258,9 +269,9 @@ export default class Game {
   placeBlock() {
     if (this.player.blockPlacementCoords && this.player.activeBlockId != null && this.player.activeBlockId !== BlockID.Air) {
       const blockPos = new THREE.Vector3(
-        Math.floor(this.player.blockPlacementCoords.x - 0.5),
-        Math.floor(this.player.blockPlacementCoords.y - 0.5),
-        Math.floor(this.player.blockPlacementCoords.z - 0.5)
+        Math.round(this.player.blockPlacementCoords.x),
+        Math.round(this.player.blockPlacementCoords.y),
+        Math.round(this.player.blockPlacementCoords.z)
       );
 
       // Use bounding boxes for collision check
@@ -317,6 +328,197 @@ export default class Game {
         this.isRightClickDown = false;
       }
     }, false);
+
+    // Mobile Action Listeners
+    const btnLeftClick = document.getElementById("btn-left-click");
+    const btnRightClick = document.getElementById("btn-right-click");
+    const btnJump = document.getElementById("btn-jump");
+
+    if (btnLeftClick) {
+      btnLeftClick.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        this.isLeftClickDown = true;
+        this.lastPunchTime = performance.now();
+        this.breakBlock();
+      });
+      btnLeftClick.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        this.isLeftClickDown = false;
+      });
+    }
+
+    if (btnRightClick) {
+      btnRightClick.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        this.isRightClickDown = true;
+        this.lastPunchTime = performance.now();
+        this.placeBlock();
+      });
+      btnRightClick.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        this.isRightClickDown = false;
+      });
+    }
+
+    if (btnJump) {
+      btnJump.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        this.player.spacePressed = true;
+      });
+      btnJump.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        this.player.spacePressed = false;
+      });
+    }
+
+    // Mobile Movement Listeners (Joystick)
+    const joystickPad = document.getElementById("mobile-joystick");
+    const joystickKnob = document.getElementById("joystick-knob");
+
+    if (joystickPad && joystickKnob) {
+      let touchId: number | null = null;
+      let center = new THREE.Vector2();
+
+      const resetJoystick = () => {
+        touchId = null;
+        joystickKnob.style.transform = `translate(-50%, -50%)`;
+        this.player.joystickInput.set(0, 0);
+      };
+
+      joystickPad.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (touchId === null) {
+          const touch = e.changedTouches[0];
+          touchId = touch.identifier;
+          const rect = joystickPad.getBoundingClientRect();
+          center.set(rect.left + rect.width / 2, rect.top + rect.height / 2);
+
+          let dx = touch.clientX - center.x;
+          let dy = touch.clientY - center.y;
+
+          const maxDist = rect.width / 2;
+          const dist = Math.sqrt(dx*dx + dy*dy);
+
+          if (dist > maxDist) {
+            dx = (dx / dist) * maxDist;
+            dy = (dy / dist) * maxDist;
+          }
+
+          joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+          this.player.joystickInput.set(dx / maxDist, dy / maxDist);
+        }
+      });
+
+      joystickPad.addEventListener("touchmove", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === touchId) {
+            const touch = e.changedTouches[i];
+            const rect = joystickPad.getBoundingClientRect();
+            let dx = touch.clientX - center.x;
+            let dy = touch.clientY - center.y;
+
+            const maxDist = rect.width / 2;
+            const dist = Math.sqrt(dx*dx + dy*dy);
+
+            if (dist > maxDist) {
+              dx = (dx / dist) * maxDist;
+              dy = (dy / dist) * maxDist;
+            }
+
+            joystickKnob.style.transform = `translate(calc(-50% + ${dx}px), calc(-50% + ${dy}px))`;
+            this.player.joystickInput.set(dx / maxDist, dy / maxDist);
+          }
+        }
+      });
+
+      joystickPad.addEventListener("touchend", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === touchId) {
+            resetJoystick();
+          }
+        }
+      });
+
+      joystickPad.addEventListener("touchcancel", (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === touchId) {
+            resetJoystick();
+          }
+        }
+      });
+    }
+
+    // Touch camera rotation
+    let cameraTouchId: number | null = null;
+    let lastTouchPos = new THREE.Vector2();
+
+    document.addEventListener("touchstart", (e) => {
+      // Ignore if clicking UI
+      if ((e.target as HTMLElement).closest('#ui')) return;
+
+      if (cameraTouchId === null) {
+        const touch = e.changedTouches[0];
+        cameraTouchId = touch.identifier;
+        lastTouchPos.set(touch.clientX, touch.clientY);
+
+        // Emulate pointer lock so we stay in first person
+        if (!this.player.controls.isLocked) {
+          this.player.controls.lock();
+        }
+      }
+    }, { passive: false });
+
+    document.addEventListener("touchmove", (e) => {
+      if (cameraTouchId !== null && this.player.controls.isLocked) {
+        for (let i = 0; i < e.changedTouches.length; i++) {
+          if (e.changedTouches[i].identifier === cameraTouchId) {
+            const touch = e.changedTouches[i];
+
+            const dx = touch.clientX - lastTouchPos.x;
+            const dy = touch.clientY - lastTouchPos.y;
+
+            lastTouchPos.set(touch.clientX, touch.clientY);
+
+            // Adjust sensitivity as needed
+            const sensitivity = 0.005;
+
+            // The PointerLockControls uses camera.rotation directly but exposes a more complex internal rotation mapping.
+            // A simpler way to update the rotation through its public interface without triggering events manually
+            // is to modify the camera directly if it's not overriding it strictly.
+            // Alternatively, rotate the camera itself, taking into account Euler limits.
+
+            const euler = new THREE.Euler(0, 0, 0, 'YXZ');
+            euler.setFromQuaternion(this.player.camera.quaternion);
+
+            euler.y -= dx * sensitivity;
+            euler.x -= dy * sensitivity;
+
+            // Clamp pitch
+            euler.x = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, euler.x));
+
+            this.player.camera.quaternion.setFromEuler(euler);
+          }
+        }
+      }
+    }, { passive: false });
+
+    const stopCameraTouch = (e: TouchEvent) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        if (e.changedTouches[i].identifier === cameraTouchId) {
+          cameraTouchId = null;
+        }
+      }
+    };
+
+    document.addEventListener("touchend", stopCameraTouch, { passive: false });
+    document.addEventListener("touchcancel", stopCameraTouch, { passive: false });
   }
 
   onWindowResize() {

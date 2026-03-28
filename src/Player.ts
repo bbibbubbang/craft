@@ -70,6 +70,9 @@ export class Player {
   lastWPressed = 0;
   isSprinting = false;
 
+  // Mobile inputs
+  joystickInput = new THREE.Vector2();
+
   lastStepSoundPlayed = 0;
 
   camera = new THREE.PerspectiveCamera(
@@ -141,6 +144,12 @@ export class Player {
 
     this.velocity.x = this.input.x;
     this.velocity.z = this.input.z;
+
+    // Add joystick input to velocity
+    if (this.joystickInput.lengthSq() > 0) {
+      this.velocity.x = this.joystickInput.x * this.maxSpeed;
+      this.velocity.z = -this.joystickInput.y * this.maxSpeed; // -y because joystick up is negative y in screen space but positive z for forward
+    }
 
     // play step sound
     if (this.onGround && this.input.length() > 0) {
